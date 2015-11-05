@@ -5,8 +5,8 @@ Assuming program is ran on beta.cse.ohio-state.edu (or any machine separate from
 client will send all bytes of desired local file to server. Client will use following protocol:
 
     The payload of each UDP segment will contain the remote IP (4 bytes), remote port (2 bytes),
-    and a flag (1 byte), followed by a data/control field as explained below. The flag takes 3 
-    possible values depending on the data/control field:
+    a flag (1 byte), and a 1-bit sequence number (1 byte), followed by a data/control field as explained
+    below. The flag takes 3 possible values depending on the data/control field:
     
         - First segment (4 bytes): The first segment should contain the number of bytes in the file to
             follow (in network byte order). The flag is set to a value of 1.
@@ -17,13 +17,13 @@ client will send all bytes of desired local file to server. Client will use foll
         - Other segments: The other segments will contain data bytes from the file to be transferred.
             Each segment can have up to 1,000 data bytes. The flag is set to a value of 3.
             
-Buffer should not exceed 1000 bytes in size. 
+Buffer should not exceed 1000 bytes in size.
 
 Command should be:
 
-    python ftpc.py <IP-address-of-gamma> <remote-port-on-gamma> <troll-port-on-beta> <local-file-to-transfer>
+    python3 ftpc.py <remote-IP-gamma> <remote-port-on-gamma> <troll–port-on-beta> <local-file-to-transfer>
 
-Created on October 17th, 2015
+Created on November 5th, 2015
 
 @author: Andy Kim
 '''
@@ -80,11 +80,10 @@ if len(sys.argv) > 4:
             # Wait for ack or timeout
             while 1:
                 print('Sending first segment')
-                read, write, err = select.select([clientSocket],[],[],0.5)
+                read, write, err = select.select([clientSocket],[],[],0.05)
                 # If an ack is received and is expected, break loop
                 if len(read) > 0 and int.from_bytes(read[0].recv(1),byteorder='big') == sequence:
                     print('ACK received for first segment!')
-                    print(read)
                     break
                 else:
                     clientSocket.sendto((payload+flag.to_bytes(1,byteorder='big')+sequence.to_bytes(1,byteorder='big')+fileSize), (ip, trollPort))
@@ -99,7 +98,7 @@ if len(sys.argv) > 4:
             # Wait for ack or timeout
             while 1:
                 print('Sending second segment')
-                read, write, err = select.select([clientSocket],[],[],0.5)
+                read, write, err = select.select([clientSocket],[],[],0.05)
                 # If an ack is received and is expected, break loop
                 if len(read) > 0 and int.from_bytes(read[0].recv(1),byteorder='big') == sequence:
                     print('ACK received for second segment!')
@@ -122,7 +121,7 @@ if len(sys.argv) > 4:
                     clientSocket.sendto((payload+flag.to_bytes(1, byteorder='big')+sequence.to_bytes(1,byteorder='big')+data), (ip, trollPort))
                     # Wait for ack or timeout
                     while 1:
-                        read, write, err = select.select([clientSocket],[],[],0.5)
+                        read, write, err = select.select([clientSocket],[],[],0.05)
                         # If an ack is received and is expected, break loop
                         if len(read) > 0 and int.from_bytes(read[0].recv(1),byteorder='big') == sequence:
                             print('ACK received for third segment!')
@@ -138,7 +137,7 @@ if len(sys.argv) > 4:
             # Close file after finish reading
             file.close()
             # Output server response confirmation
-            print("Finished")
+            print(clientSocket.recv(100).decode(errors='ignore'))
             # Close connection with server
             clientSocket.close()
         else:

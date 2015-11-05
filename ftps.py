@@ -6,8 +6,8 @@ server will receive a binary file from client. File will be saved in directory '
 Server and client will use the following protocol:
 
     The payload of each UDP segment will contain the remote IP (4 bytes), remote port (2 bytes),
-    and a flag (1 byte), followed by a data/control field as explained below. The flag takes 3 
-    possible values depending on the data/control field:
+    a flag (1 byte), and a 1-bit sequence number (1 byte), followed by a data/control field as explained 
+    below. The flag takes 3 possible values depending on the data/control field:
     
         - First segment (4 bytes): The first segment should contain the number of bytes in the file to
             follow (in network byte order). The flag is set to a value of 1.
@@ -19,13 +19,14 @@ Server and client will use the following protocol:
             Each segment can have up to 1,000 data bytes. The flag is set to a value of 3.
 
     
-Buffer should not exceed 1000 bytes in size. 
+Buffer should not exceed 1000 bytes in size. Using alternating bit protocol, server will send ACK for
+every packet received to client.
 
 Command should be:
 
-    python3 ftpc.py <local-port-on-gamma>
+    python3 ftps.py <local-port-on-gamma> <troll-port-on-gamma>
 
-Created on October 17th, 2015
+Created on November 5th, 2015
 
 @author: Andy Kim
 '''
@@ -61,7 +62,7 @@ if len(sys.argv) > 2:
         while sequence != ack:
             print('Wrong sequence for first segment!')
             # Send ack to client
-            serverSocket.sendto(ack.to_bytes(1,byteorder='big'), (ip,trollPort))
+            serverSocket.sendto(sequence.to_bytes(1,byteorder='big'), (ip,trollPort))
             # Get payload and address from first UDP segment
             payload, addr = serverSocket.recvfrom(12)
             # Get sequence number
@@ -81,7 +82,7 @@ if len(sys.argv) > 2:
         while sequence != ack:
             print('Wrong sequence for second segment!')
             # Send ack to client
-            serverSocket.sendto(ack.to_bytes(1,byteorder='big'), (ip,trollPort))
+            serverSocket.sendto(sequence.to_bytes(1,byteorder='big'), (ip,trollPort))
             # Get payload and address from first UDP segment
             payload, addr = serverSocket.recvfrom(28)
             # Get sequence number
@@ -113,7 +114,7 @@ if len(sys.argv) > 2:
                 while sequence != ack:
                     print('Wrong sequence for third segment!')
                     # Send ack to client
-                    serverSocket.sendto(ack.to_bytes(1,byteorder='big'), (ip,trollPort))
+                    serverSocket.sendto(sequence.to_bytes(1,byteorder='big'), (ip,trollPort))
                     # Get payload and address from first UDP segment
                     payload, addr = serverSocket.recvfrom(908)
                     # Get sequence number
@@ -134,6 +135,8 @@ if len(sys.argv) > 2:
         output.close()
         # Print to server prompt successful copy
         print('Copied file in recv directory:', fileName)
+        # Send successful file copy confirmation to client
+        serverSocket.sendto(('File copy successful!').encode(errors='ignore'), (ip,trollPort))
 else:
     # Output error for invalid command line arguments
     print('Error: invalid command line arguments')
